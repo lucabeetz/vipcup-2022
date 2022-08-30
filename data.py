@@ -1,7 +1,9 @@
 import torch
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
+from torchvision import transforms
 from torchvision.datasets import ImageFolder
+from transform import ProvidedTransform
 
 folder_mapping = lambda l: [1 if ll in [2,3,5,6,7,8,9,10,11,12,13,14,15,16] else 0 for ll in l]
 
@@ -12,8 +14,13 @@ class VIPDataModule(pl.LightningDataModule):
         self.data_dir = data_dir
         self.batch_size = batch_size
 
+        self.transform = transforms.Compose([
+            ProvidedTransform(),
+            transforms.CenterCrop(200)
+        ])
+
     def setup(self):
-        dataset = ImageFolder(self.data_dir)
+        dataset = ImageFolder(self.data_dir, self.transform)
         num_classes = max(dataset.targets) + 1
 
         # Determine which samples are real / fake
