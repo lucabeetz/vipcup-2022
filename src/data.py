@@ -56,8 +56,8 @@ class VIPDataModule(pl.LightningDataModule):
         # Create train and val datasets
         self.train_dataset, self.val_dataset = random_split(dataset, (train_samples, val_samples))
 
-        self.train_sampler = WeightedRandomSampler(class_weights[labels[self.train_dataset.indices]], self.num_train_samples)
-        self.val_sampler = WeightedRandomSampler(class_weights[labels[self.val_dataset.indices]], self.num_val_samples)
+        self.train_sampler = WeightedRandomSampler(class_weights[labels[self.train_dataset.indices]], self.num_train_samples, replacement=True)
+        self.val_sampler = WeightedRandomSampler(class_weights[labels[self.val_dataset.indices]], self.num_val_samples, replacement=True)
 
         # TODO: Add test dataset
 
