@@ -3,3 +3,4 @@ wandb
 
 vip-challenge
 __pycache__
+*.egg-info

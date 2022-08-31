@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler, Dataset
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
-from transform import ProvidedTransform
+from src.transform import ProvidedTransform
 
 folder_mapping = lambda l: torch.tensor([1 if ll in [2,3,5,6,7,8,9,10,11,12,13,14,15,16] else 0 for ll in l])
 
@@ -48,7 +48,6 @@ class VIPDataModule(pl.LightningDataModule):
         class_weights = torch.zeros(num_classes)
         class_weights[folder_mapping(torch.arange(num_classes)) == 0] = real_class_weights
         class_weights[folder_mapping(torch.arange(num_classes)) == 1] = fake_class_weights
-        print(class_weights)
 
         # Calculate amount of samples for each split
         train_samples = int(len(dataset) * 0.8)
