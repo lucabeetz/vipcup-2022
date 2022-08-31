@@ -9,12 +9,16 @@ from transform import ProvidedTransform
 folder_mapping = lambda l: torch.tensor([1 if ll in [2,3,5,6,7,8,9,10,11,12,13,14,15,16] else 0 for ll in l])
 
 class VIPDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str = '/mnt/hdd-data/DeepfakeIEEE/original', batch_size: int = 256, num_workers: int = 12):
+    def __init__(self, data_dir: str = '/mnt/hdd-data/DeepfakeIEEE/original', batch_size: int = 256, num_workers: int = 12,
+                num_train_samples: int = None, num_val_samples: int = None):
         super().__init__()
 
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
+
+        self.num_train_samples = num_train_samples
+        self.num_val_samples = num_val_samples
 
         self.transform = transforms.Compose([
             ProvidedTransform(),
@@ -37,8 +41,8 @@ class VIPDataModule(pl.LightningDataModule):
         real_class_samples = torch.unique(real_labels, return_counts=True)[1]
         fake_class_samples = torch.unique(fake_labels, return_counts=True)[1]
 
-        real_class_weights = real_class_samples / num_classes
-        fake_class_weights = fake_class_samples / num_classes
+        real_class_weights = 1 / real_class_samples / len(real_class_samples)
+        fake_class_weights = 1 / fake_class_samples / len(fake_class_samples)
 
         # Calculate sampling weight for each folder
         class_weights = torch.zeros(num_classes)
@@ -53,11 +57,8 @@ class VIPDataModule(pl.LightningDataModule):
         # Create dataset for each split
         self.train_dataset, self.val_dataset = random_split(dataset, (train_samples, val_samples))
 
-        self.train_sampler = WeightedRandomSampler(class_weights[labels[self.train_dataset.indices]], len(self.train_dataset))
-        self.val_sampler = WeightedRandomSampler(class_weights[labels[self.val_dataset.indices]], len(self.val_dataset))
-
-        # self.train_sampler = WeightedRandomSampler(class_weights[labels[train_indices]], train_samples)
-        # self.val_sampler = WeightedRandomSampler(class_weights[labels[val_indices]], val_samples)
+        self.train_sampler = WeightedRandomSampler(class_weights[labels[self.train_dataset.indices]], self.num_train_samples)
+        self.val_sampler = WeightedRandomSampler(class_weights[labels[self.val_dataset.indices]], self.num_val_samples)
 
         # TODO: Add test dataset
 

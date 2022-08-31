@@ -5,7 +5,7 @@ from model import VIPModel
 
 if __name__ == '__main__':
     model = VIPModel()
-    data_module = VIPDataModule()
+    data_module = VIPDataModule(num_train_samples=20000, num_val_samples=1000)
 
     trainer = pl.Trainer(max_epochs=1, accelerator='gpu', devices=[1])
     trainer.fit(model, data_module)

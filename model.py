@@ -1,4 +1,5 @@
 import torch
+import torchmetrics
 import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
@@ -15,6 +16,8 @@ class VIPModel(pl.LightningModule):
 
         self.classifier = nn.Linear(num_filters, 2)
 
+        self.accuracy = torchmetrics.Accuracy()
+
     def forward(self, x):
         self.feature_extractor.eval()
         with torch.no_grad():
@@ -26,6 +29,9 @@ class VIPModel(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = F.cross_entropy(y_hat, y)
+        self.accuracy(y_hat.argmax(dim=-1), y)
+        self.log('train_acc', self.accuracy, prog_bar=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
