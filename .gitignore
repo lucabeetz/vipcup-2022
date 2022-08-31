@@ -1,2 +1,5 @@
-__pycache__
 lightning_logs
+wandb
+
+vip-challenge
+__pycache__
