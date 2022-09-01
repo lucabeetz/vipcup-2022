@@ -6,11 +6,12 @@ trainer:
       init_args:
         project: vip-challenge
         dir: /mnt/hdd-data/beetz/vip/logs
+        save_dir: /mnt/hdd-data/beetz/vip/logs
   enable_checkpointing: true
   default_root_dir: /mnt/hdd-data/beetz/vip/logs
   accelerator: gpu
-  devices: 1
-  max_epochs: 5
+  devices: [1]
+  max_epochs: 25
 data:
   data_dir: /mnt/hdd-data/DeepfakeIEEE/original
   batch_size: 256
