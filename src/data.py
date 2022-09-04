@@ -6,8 +6,7 @@ from torch.utils.data import DataLoader, random_split, WeightedRandomSampler, Da
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from src.transform import ProvidedTransform
-
-folder_mapping = lambda l: torch.tensor([1 if ll in [2,3,5,6,7,8,9,10,11,12,13,14,15,16,20,22,23,24,25,27] else 0 for ll in l])
+from src.utils import label_mapping, calculate_weights
 
 class VIPDataModule(pl.LightningDataModule):
     def __init__(self, data_dir: str = '/mnt/hdd-data/DeepfakeIEEE/original', batch_size: int = 256, num_workers: int = 12,
@@ -38,24 +37,7 @@ class VIPDataModule(pl.LightningDataModule):
         dataset = ImageFolder(self.data_dir, self.transform)
 
         labels = torch.tensor(dataset.targets)
-        num_classes = max(dataset.targets) + 1
-
-        # Determine which samples are real / fake
-        is_fake_indices = folder_mapping(dataset.targets)
-        real_labels = labels[is_fake_indices == 0]
-        fake_labels = labels[is_fake_indices == 1]
-
-        # Get total amount of real / fake samples
-        real_class_samples = torch.unique(real_labels, return_counts=True)[1]
-        fake_class_samples = torch.unique(fake_labels, return_counts=True)[1]
-
-        real_class_weights = 1 / real_class_samples / len(real_class_samples)
-        fake_class_weights = 1 / fake_class_samples / len(fake_class_samples)
-
-        # Calculate sampling weight for each folder
-        class_weights = torch.zeros(num_classes)
-        class_weights[folder_mapping(torch.arange(num_classes)) == 0] = real_class_weights
-        class_weights[folder_mapping(torch.arange(num_classes)) == 1] = fake_class_weights
+        weights = calculate_weights(labels)
 
         # Calculate amount of samples for each split
         train_samples = int(len(dataset) * 0.8)
@@ -85,5 +67,5 @@ class VIPDataset(Dataset):
 
     def __getitem__(self, idx):
         img, label = self.dataset[idx]
-        target = folder_mapping([label])[0]
+        target = label_mapping([label])[0]
         return img, target
