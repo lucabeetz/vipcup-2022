@@ -7,15 +7,28 @@ trainer:
         project: vip-challenge
         dir: /mnt/hdd-data/beetz/vip/logs
         save_dir: /mnt/hdd-data/beetz/vip/logs
+        log_model: all
+  callbacks:
+    - class_path: pytorch_lightning.callbacks.EarlyStopping
+      init_args:
+        monitor: val/acc
+        patience: 20
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/acc
+        mode: max
   enable_checkpointing: true
   default_root_dir: /mnt/hdd-data/beetz/vip/logs
   accelerator: gpu
-  devices: [1]
-  max_epochs: 25
+  devices: [2]
+  max_epochs: 100
 data:
   data_dir: /mnt/hdd-data/DeepfakeIEEE/original
   batch_size: 256
   num_workers: 12
   num_train_samples: 20000
   num_val_samples: 1000
+  test_data_path: /mnt/hdd-data/DeepfakeIEEE/notebooks/val_wsubset.pt
+model:
+  timm_model_name: resnet18
 ckpt_path: null
