@@ -19,7 +19,7 @@ class VIPModel(pl.LightningModule):
 
     def forward(self, x):
         x = self.model(x)
-        return F.softmax(x, dim=-1)
+        return x
 
     def training_step(self, batch, batch_idx):
         x, y = batch

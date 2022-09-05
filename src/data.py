@@ -1,12 +1,14 @@
-from cgi import test
-from typing import Optional
 import torch
 import pytorch_lightning as pl
+import pandas as pd
+from typing import Optional
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler, Dataset
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from src.transform import ProvidedTransform
-from src.utils import label_mapping, calculate_weights
+from src.utils import label_mapping, calculate_weights, DEFAULT_GROUPS
+from timm.data import resolve_data_config
+from timm.data.transforms_factory import create_transform
 
 class VIPDataModule(pl.LightningDataModule):
     def __init__(self, data_dir: str = '/mnt/hdd-data/DeepfakeIEEE/original', batch_size: int = 256, num_workers: int = 12,
@@ -21,42 +23,44 @@ class VIPDataModule(pl.LightningDataModule):
         self.num_val_samples = num_val_samples
         self.test_data_path = test_data_path
 
+        # Load model transform
+        timm_model = self.trainer.lightning_module().model
+        config = resolve_data_config({}, model=timm_model)
+        final_transform = create_transform(**config)
+
         self.transform = transforms.Compose([
             ProvidedTransform(),
-            transforms.CenterCrop(200),
-            transforms.ToTensor()
+            final_transform
         ])
 
     def setup(self, stage: Optional[str] = None):
-        # Create list of filenames for test images
-        # self.test_dataset = torch.load(self.test_data_path)
-        # test_filenames = [self.test_dataset[0].dataset.samples[i][0] for i in self.test_dataset[0].indices]
+        # Load test dataset and create list of files in it
+        self.val_dataset = torch.load(self.test_data_path)
+        self.val_dataset[0].dataset.transform = self.transform
+        val_filenames = set([self.val_dataset[0].dataset.samples[i][0] for i in self.val_dataset[0].indices])
 
-        # Create dataset with train and val data
-        # is_valid_file = lambda f: f not in test_filenames and f.lower().endswith(('.png', '.jpg'))
-        dataset = ImageFolder(self.data_dir, self.transform)
+        # Create training dataset
+        is_valid_file = lambda f: f not in val_filenames and f.lower().endswith(('.png', '.jpg', '.jpeg'))
+        self.train_dataset = ImageFolder(self.data_dir, self.transform, is_valid_file=is_valid_file)
+        labels = torch.tensor(self.train_dataset.targets)
 
-        labels = torch.tensor(dataset.targets)
         weights = calculate_weights(labels)
+        debug_df = pd.DataFrame({
+            'labels': label_mapping(torch.arange(max(labels)+1)),
+            'names': self.train_dataset.classes,
+            'samples': torch.unique(labels, return_counts=True)[1],
+            'group': DEFAULT_GROUPS,
+            'weight': weights
+        })
 
-        # Calculate amount of samples for each split
-        train_samples = int(len(dataset) * 0.8)
-        val_samples = len(dataset) - train_samples
-
-        # Create train and val datasets
-        self.train_dataset, self.val_dataset = random_split(dataset, (train_samples, val_samples))
-
-        self.train_sampler = WeightedRandomSampler(class_weights[labels[self.train_dataset.indices]], self.num_train_samples, replacement=True)
-        self.val_sampler = WeightedRandomSampler(class_weights[labels[self.val_dataset.indices]], self.num_val_samples, replacement=True)
+        self.train_sampler = WeightedRandomSampler(weights[labels[self.train_dataset.indices]], self.num_train_samples)
+        self.val_sampler = WeightedRandomSampler(self.val_dataset[1], self.num_val_samples, generator=torch.Generator().manual_seed(0))
 
     def train_dataloader(self):
         return DataLoader(VIPDataset(self.train_dataset), batch_size=self.batch_size, sampler=self.train_sampler, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(VIPDataset(self.val_dataset), batch_size=self.batch_size, sampler=self.val_sampler, num_workers=self.num_workers)
-
-    def test_dataloader(self):
-        return DataLoader(VIPDataset(self.test_dataset), batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(VIPDataset(self.val_dataset[0]), batch_size=self.batch_size, sampler=self.val_sampler, num_workers=self.num_workers)
 
 class VIPDataset(Dataset):
     def __init__(self, dataset):
