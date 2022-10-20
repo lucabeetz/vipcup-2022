@@ -1,3 +1,4 @@
+import timm
 import torch
 import pytorch_lightning as pl
 import pandas as pd
@@ -11,8 +12,8 @@ from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
 
 class VIPDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str = '/mnt/hdd-data/DeepfakeIEEE/original', batch_size: int = 256, num_workers: int = 12,
-                num_train_samples: int = None, num_val_samples: int = None, test_data_path: str = None):
+    def __init__(self, data_dir: str = '/mnt/hdd-data/DeepfakeIEEE/original', batch_size: int = 256, num_workers: int = 12, 
+                num_train_samples: int = None, num_val_samples: int = None, test_data_path: str = None, timm_model_name: str = None):
         super().__init__()
 
         self.data_dir = data_dir
@@ -24,9 +25,12 @@ class VIPDataModule(pl.LightningDataModule):
         self.test_data_path = test_data_path
 
         # Load model transform
-        timm_model = self.trainer.lightning_module().model
-        config = resolve_data_config({}, model=timm_model)
-        final_transform = create_transform(**config)
+        if timm_model_name:
+            model = timm.create_model(timm_model_name, pretrained=True, num_classes=2)
+            config = resolve_data_config({}, model=model)
+            final_transform = create_transform(**config)
+        else:
+            final_transform = transforms.ToTensor()
 
         self.transform = transforms.Compose([
             ProvidedTransform(),
@@ -37,10 +41,11 @@ class VIPDataModule(pl.LightningDataModule):
         # Load test dataset and create list of files in it
         self.val_dataset = torch.load(self.test_data_path)
         self.val_dataset[0].dataset.transform = self.transform
-        val_filenames = set([self.val_dataset[0].dataset.samples[i][0] for i in self.val_dataset[0].indices])
+        relative_val_filenames = [self.val_dataset[0].dataset.samples[i][0] for i in self.val_dataset[0].indices]
+        val_filenames = set([f.replace("../","/mnt/hdd-data/DeepfakeIEEE/") for f in relative_val_filenames])
 
         # Create training dataset
-        is_valid_file = lambda f: f not in val_filenames and f.lower().endswith(('.png', '.jpg', '.jpeg'))
+        is_valid_file = lambda f: f not in val_filenames and f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
         self.train_dataset = ImageFolder(self.data_dir, self.transform, is_valid_file=is_valid_file)
         labels = torch.tensor(self.train_dataset.targets)
 
@@ -53,7 +58,7 @@ class VIPDataModule(pl.LightningDataModule):
             'weight': weights
         })
 
-        self.train_sampler = WeightedRandomSampler(weights[labels[self.train_dataset.indices]], self.num_train_samples)
+        self.train_sampler = WeightedRandomSampler(weights[labels], self.num_train_samples)
         self.val_sampler = WeightedRandomSampler(self.val_dataset[1], self.num_val_samples, generator=torch.Generator().manual_seed(0))
 
     def train_dataloader(self):

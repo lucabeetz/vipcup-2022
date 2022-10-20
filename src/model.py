@@ -7,11 +7,17 @@ import torch.nn.functional as F
 from torchvision.models import resnet18, ResNet18_Weights
 
 class VIPModel(pl.LightningModule):
-    def __init__(self, timm_model_name: str):
+    def __init__(self, timm_model_name: str, learning_rate: float, weight_decay: float):
         super().__init__()
+        
+        self.save_hyperparameters()
+
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
 
         # Create timm model
         self.model = timm.create_model(timm_model_name, pretrained=True, num_classes=2)
+        nn.init.zeros_(self.model.head.weight) #added
 
         self.train_acc = torchmetrics.Accuracy()
         self.val_acc = torchmetrics.Accuracy()
@@ -54,4 +60,9 @@ class VIPModel(pl.LightningModule):
         self.log('test/loss', loss)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=3e-5)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        lr_scheduler = {
+            'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5),
+            'monitor': 'val/loss'
+        }
+        return [optimizer], [lr_scheduler]

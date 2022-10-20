@@ -1,6 +1,13 @@
 lightning_logs
 wandb
 
+original
+notebooks
+final_submission
+
+scripts/nohup.out
+scripts/*.log
+
 vip-challenge
 __pycache__
 *.egg-info
